@@ -52,6 +52,27 @@ class StatusCheck(BaseModel):
 class StatusCheckCreate(BaseModel):
     client_name: str
 
+# IA Assistant Models
+class ChatMessage(BaseModel):
+    message: str
+    session_id: Optional[str] = "default"
+
+class ChatResponse(BaseModel):
+    response: str
+    session_id: str
+
+class ConfigUpdate(BaseModel):
+    assistant_name: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+
+class ConfigResponse(BaseModel):
+    assistant_name: str
+    model: str
+    theme: str
+    has_api_key: bool
+    document_count: int
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
