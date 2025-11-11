@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,10 +7,24 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone
+import shutil
 
+# Import IA modules
+try:
+    from ia_core import IACore
+    from config import Config
+    IA_ENABLED = True
+    # Initialize IA Core
+    Config.ensure_directories()
+    ai_core = IACore()
+    print("✅ IA Core inicializado correctamente en el servidor")
+except Exception as e:
+    IA_ENABLED = False
+    ai_core = None
+    print(f"❌ Error al inicializar IA Core: {e}")
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
