@@ -102,6 +102,105 @@ async def get_status_checks():
     
     return status_checks
 
+# ================================
+# IA Assistant Routes
+# ================================
+
+@api_router.get("/assistant/config", response_model=ConfigResponse)
+async def get_assistant_config():
+    """Obtiene la configuración actual del asistente"""
+    if not IA_ENABLED:
+        raise HTTPException(status_code=503, detail="IA Core no está disponible")
+    
+    doc_count = 0
+    if ai_core.document_loader:
+        doc_count = ai_core.document_loader.get_document_count()
+    
+    return ConfigResponse(
+        assistant_name=Config.ASSISTANT_NAME,
+        model=Config.AI_MODEL,
+        theme=Config.THEME,
+        has_api_key=bool(Config.GEMINI_API_KEY),
+        document_count=doc_count
+    )
+
+@api_router.post("/assistant/config")
+async def update_assistant_config(config_update: ConfigUpdate):
+    """Actualiza la configuración del asistente"""
+    if not IA_ENABLED:
+        raise HTTPException(status_code=503, detail="IA Core no está disponible")
+    
+    result = ai_core.update_config(
+        assistant_name=config_update.assistant_name,
+        api_key=config_update.api_key,
+        model=config_update.model
+    )
+    
+    if result["success"]:
+        return JSONResponse(content=result)
+    else:
+        raise HTTPException(status_code=400, detail=result["message"])
+
+@api_router.post("/assistant/chat", response_model=ChatResponse)
+async def chat_with_assistant(chat_msg: ChatMessage):
+    """Envía un mensaje al asistente y obtiene una respuesta"""
+    if not IA_ENABLED:
+        raise HTTPException(status_code=503, detail="IA Core no está disponible")
+    
+    try:
+        response = ai_core.chat(chat_msg.message, chat_msg.session_id)
+        return ChatResponse(response=response, session_id=chat_msg.session_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en el chat: {str(e)}")
+
+@api_router.post("/assistant/document/upload")
+async def upload_document(file: UploadFile = File(...)):
+    """Carga un documento para el aprendizaje local (RAG)"""
+    if not IA_ENABLED:
+        raise HTTPException(status_code=503, detail="IA Core no está disponible")
+    
+    if not ai_core.document_loader:
+        raise HTTPException(status_code=503, detail="Document Loader no está disponible")
+    
+    # Verificar formato
+    if not (file.filename.endswith('.pdf') or file.filename.endswith('.txt')):
+        raise HTTPException(status_code=400, detail="Solo se admiten archivos .pdf y .txt")
+    
+    try:
+        # Guardar archivo temporalmente
+        upload_dir = ROOT_DIR / "uploads"
+        upload_dir.mkdir(exist_ok=True)
+        
+        file_path = upload_dir / file.filename
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Cargar documento
+        result = ai_core.document_loader.load_document(str(file_path))
+        
+        # Eliminar archivo temporal
+        file_path.unlink()
+        
+        return JSONResponse(content={"message": result})
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al cargar documento: {str(e)}")
+
+@api_router.delete("/assistant/document/clear")
+async def clear_documents():
+    """Elimina todos los documentos cargados"""
+    if not IA_ENABLED:
+        raise HTTPException(status_code=503, detail="IA Core no está disponible")
+    
+    if not ai_core.document_loader:
+        raise HTTPException(status_code=503, detail="Document Loader no está disponible")
+    
+    try:
+        result = ai_core.document_loader.clear_documents()
+        return JSONResponse(content={"message": result})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al limpiar documentos: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 
