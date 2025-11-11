@@ -79,3 +79,7 @@ agenthub/agents/youtube/db
 # Mobile development
 android-sdk/ AsistenteIA.rar
 AsistenteIA.rar
+-e 
+# Environment files
+*.env
+*.env.*
